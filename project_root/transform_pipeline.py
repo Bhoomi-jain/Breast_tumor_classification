@@ -3,16 +3,13 @@ import pandas as pd
 import numpy as np
 import pickle
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
 from config import config
 
 def complete_pipeline():
-    print("🔹 Loading dataset...")
-
     # Load the dataset
     data_path = os.path.join(config.ROOT_DIR_PATH, config.DATA_DIR, config.FILENAME)
     data = pd.read_csv(data_path)
-
-    print("🔹 Preprocessing data...")
 
     # Drop duplicates
     data.drop_duplicates(inplace=True)
@@ -23,13 +20,21 @@ def complete_pipeline():
     # Select refined features
     data = data[config.REFINED_COLUMNS]
 
-    # Encode target variable (M → 1, B → 0)
-    data["diagnosis"].replace({"M": 1, "B": 0}, inplace=True)
+    # Encode target variable (M → 1, B → 0) using map()
+    data["diagnosis"] = data["diagnosis"].map({"M": 1, "B": 0})
 
-    # Split into train & test sets
-    training_data_len = int(config.TRAINING_DATA_FRAC * len(data))
-    train_data = data.iloc[:training_data_len]
-    test_data = data.iloc[training_data_len:]
+
+    # Save cleaned dataset (optional for debugging or record-keeping)
+    cleaned_path = os.path.join(config.DATA_DIR, "cleaned_full_data.csv")
+    data.to_csv(cleaned_path, index=False)
+
+    # Split into train & test sets using scikit-learn
+    train_data, test_data = train_test_split(
+        data,
+        test_size=1 - config.TRAINING_DATA_FRAC,
+        random_state=42,
+        stratify=data["diagnosis"]  # preserves class distribution
+    )
 
     # Separate features & target
     X_train = train_data.drop(columns=["diagnosis"]).values
@@ -37,8 +42,6 @@ def complete_pipeline():
 
     X_test = test_data.drop(columns=["diagnosis"]).values
     y_test = test_data["diagnosis"].values.reshape(-1, 1)
-
-    print("🔹 Normalizing features...")
 
     # Standardize the features
     scaler = StandardScaler()
@@ -48,7 +51,6 @@ def complete_pipeline():
     # Save scaler for future use
     os.makedirs(config.SAVED_MODEL_PATH, exist_ok=True)
     scaler_path = os.path.join(config.SAVED_MODEL_PATH, "scaler.pkl")
-    
     with open(scaler_path, "wb") as file:
         pickle.dump(scaler, file)
 
@@ -59,8 +61,8 @@ def complete_pipeline():
     train_df.to_csv(os.path.join(config.DATA_DIR, config.TRAINING_DATA_FILENAME), index=False)
     test_df.to_csv(os.path.join(config.DATA_DIR, config.TESTING_DATA_FILENAME), index=False)
 
-    print("✅ Data preprocessing complete!")
-    
+    print("Data preprocessing complete!")
+
     return train_df, test_df
 
 if __name__ == "__main__":

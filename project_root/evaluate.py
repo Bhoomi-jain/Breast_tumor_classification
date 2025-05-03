@@ -48,20 +48,20 @@ def sigmoid(theta0, theta, X):
 
 def evaluate():
     """Evaluate the trained model on the test dataset."""
-    print("Loading test data...")
+  
     test_data = load_data()
     
-    print("Preprocessing test data...")
+    """Preprocessing test data..."""
     X_test, y_test = preprocess_data(test_data)
     
-    print("Loading trained model...")
+
     theta0, theta = load_model()
     
     print("Making predictions...")
     y_pred_prob = sigmoid(theta0, theta, X_test)
     y_pred = np.uint8(y_pred_prob > 0.5)  # Convert probabilities to binary predictions
     
-    print("Computing evaluation metrics...")
+    
     print("Classification Report:")
     print(classification_report(y_test, y_pred))
     
