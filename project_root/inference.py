@@ -6,6 +6,7 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from pydantic import BaseModel
 from config import config
+import uvicorn
 
 app = FastAPI()
 
@@ -49,11 +50,11 @@ class TumorInput(BaseModel):
     features: list[float]  # Expecting a list of feature values
 
 @app.get("/")
-def home():
+async def home():
     return {"message": "Tumor Classification API is running!"}
 
 @app.post("/predict")
-def predict(input_data: TumorInput):
+async def predict(input_data: TumorInput):
     """Predict tumor classification based on input features."""
     # Convert input to a NumPy array
     input_array = np.array(input_data.features).reshape(1, -1)
@@ -72,5 +73,4 @@ def predict(input_data: TumorInput):
 
 # Run FastAPI when executing this script
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app)
