@@ -10,6 +10,9 @@ import uvicorn
 
 app = FastAPI()
 
+# Global variable for input features
+input_features = []
+
 # Load the trained model
 def load_model():
     """Loads the trained model parameters from file."""
@@ -23,54 +26,65 @@ def load_model():
     
     return theta0, theta
 
-# Sigmoid function for probability calculation
+# Sigmoid function
 def sigmoid(theta0, theta, X):
     return 1 / (1 + np.exp(-(theta0 + np.matmul(X, theta))))
 
-# Load scaler (fitted on training data)
+# Load scaler and extract feature names from REFINED_COLUMNS
 def load_scaler():
+    global input_features
     train_data_path = os.path.join(config.DATA_DIR, config.TRAINING_DATA_FILENAME)
+    
     if not os.path.exists(train_data_path):
         raise FileNotFoundError(f"Training data not found at {train_data_path}")
     
     train_data = pd.read_csv(train_data_path)
-    train_features = train_data.iloc[:, 1:]  # Exclude target column
-    
+
+    # Remove target column to get input features
+    input_features = [col for col in config.REFINED_COLUMNS if col != config.TARGET_COLUMN]
+    train_features = train_data[input_features]
+
     scaler = StandardScaler()
     scaler.fit(train_features)
     
     return scaler
 
-# Load model & scaler
+# Load model & scaler at startup
 theta0, theta = load_model()
 scaler = load_scaler()
 
-# Define the input data format
+# Input schema
 class TumorInput(BaseModel):
-    features: list[float]  # Expecting a list of feature values
+    features: list[float]
 
+# Root endpoint
 @app.get("/")
 async def home():
     return {"message": "Tumor Classification API is running!"}
 
+# Features endpoint
+@app.get("/features")
+async def get_features():
+    return {"features": input_features}
+
+# Prediction endpoint
 @app.post("/predict")
 async def predict(input_data: TumorInput):
-    """Predict tumor classification based on input features."""
-    # Convert input to a NumPy array
+    if len(input_data.features) != len(input_features):
+        return {
+            "error": f"Expected {len(input_features)} features, but got {len(input_data.features)}"
+        }
+
     input_array = np.array(input_data.features).reshape(1, -1)
-
-    # Scale input
     input_scaled = scaler.transform(input_array)
-
-    # Make prediction
     probability = sigmoid(theta0, theta, input_scaled)
-    prediction = int(probability > 0.5)  # Convert to 0 (Benign) or 1 (Malignant)
+    prediction = int(probability > 0.5)
 
     return {
         "prediction": "Malignant" if prediction == 1 else "Benign",
         "probability": round(float(probability[0][0]), 4)
     }
 
-# Run FastAPI when executing this script
+# Run app locally
 if __name__ == "__main__":
-    uvicorn.run(app)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
